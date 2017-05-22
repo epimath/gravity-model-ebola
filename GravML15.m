@@ -1,37 +1,11 @@
-function LL = GravML15(ParamsTemp, paramsfit)
+% Cost function for fitting the EVD gravity model
+
+function LL = GravML15(ParamsTemp, paramsfit, data)
 paramsfit = abs(paramsfit); %Ensures that parameters have correct sign
-%% Parameters to be fitted
+% Parameters to be fitted
 %beta1
 %deathfrac
 %kappa
-datatimes = [0,4,6,11,13,17,25,29,31,38,40,45,47,52,54,56,61,64,68,69,...
-    72,74,77,79,81,84,86,88,94,104,105,106,108,113,120,122,127,129];
-
-% Time: from May 24 to September 30
-% Cumulative cases in Guinea
-infectedGuinea = [258,281,291,328,344,351,398,390,390,413,412,408,409,...
-    406,411,410,415,427,460,485,495,495,506,510,519,543,579,607,648,812,...
-    862,861,936,942,1022,1074,1157,1199];
-% Cumulative deaths in Guinea
-deadGuinea = [174,186,193,208,215,226,264,267,270,303,305,307,309,304,...
-    310,310,314,319,339,358,363,367,373,377,380,394,396,406,430,517,555,...
-    557,595,601,635,648,710,739];
-% Cumulative cases in Sierra Leone
-infectedSierraLeone = [0,16,50,79,81,89,97,128,158,239,252,305,337,386,...
-    397,442,454,525,533,646,691,717,730,783,810,848,907,910,1026,1261,...
-    1361,1424,1620,1673,1940,2021,2304,2437];
-% Cumulative deaths in Sierra Leone
-deadSierraLeone = [0,5,6,6,6,7,49,55,34,99,101,127,142,194,197,206,219,...
-    224,233,273,286,298,315,334,348,365,374,392,422,491,509,524,562,562,...
-    597,605,622,623];
-% Cumulative cases in Liberia
-infectedLiberia = [13,13,14,14,14,14,33,41,51,107,115,131,142,172,174,...
-    196,224,249,329,468,516,554,599,670,786,834,972,1082,1378,1871,2046,...
-    2081,2407,2710,3280,3458,3696,3834];
-% Cumulative deaths in Liberia
-deadLiberia = [11,11,12,12,12,12,24,25,34,65,75,84,88,105,106,116,127,...
-    129,156,255,282,294,323,355,413,466,576,624,694,1089,1224,1137,1296,...
-    1459,1677,1830,1998,2069];
 
 %% Params 
 alpha = ParamsTemp(1);              %1. Rate from E to I1
@@ -128,7 +102,7 @@ initialLiberia = [S_ICL EH_ICL EA1_ICL EA2_ICL I1_ICL I2_ICL F_ICL R_ICL...
 
 initial0 = [initialGuinea initialSierraLeone initialLiberia];
 %% Run Model
-[t,x] = ode45(@ebola_gmodel15,datatimes,initial0,[],ParamsTemp,numpatches);
+[t,x] = ode45(@ebola_gmodel15,data.times,initial0,[],ParamsTemp,numpatches);
 Gkorrekt = k(1); % correction factor for Guinea
 SLkorrekt = k(2); % correction factor for Sierra Leone
 Lkorrekt = k(3); % correction factor for Liberia
@@ -140,12 +114,12 @@ L_cases = Lkorrekt*x(:,35);
 L_deaths = Lkorrekt*x(:,36);
 
 % Differences
-d1 = G_cases - infectedGuinea'; 
-d2 = G_deaths - deadGuinea';
-d3 = SL_cases - infectedSierraLeone';
-d4 = SL_deaths - deadSierraLeone';
-d5 = L_cases - infectedLiberia';
-d6 = L_deaths - deadLiberia';
+d1 = G_cases - data.infectedGuinea'; 
+d2 = G_deaths - data.deadGuinea';
+d3 = SL_cases - data.infectedSierraLeone';
+d4 = SL_deaths - data.deadSierraLeone';
+d5 = L_cases - data.infectedLiberia';
+d6 = L_deaths - data.deadLiberia';
 
 %% GoF (Goodness of fit)
 LL = sum(d1.^2 + d2.^2 + d3.^2 + d4.^2 + d5.^2 + d6.^2);

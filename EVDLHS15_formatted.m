@@ -1,44 +1,50 @@
+% Main code for EVD gravity model
+
+% Original code by Jeremy P D'Silva
+% Edits by JPD & MCE
+
+
 %% Data
-datatimes = [0,4,6,11,13,17,25,29,31,38,40,45,47,52,54,56,61,64,68,69,...
-    72,74,77,79,81,84,86,88,94,104,105,106,108,113,120,122,127,129];
+
+data = struct;
 
 % Time: until Sep 30, from May 24
+data.times = [0,4,6,11,13,17,25,29,31,38,40,45,47,52,54,56,61,64,68,69,...
+    72,74,77,79,81,84,86,88,94,104,105,106,108,113,120,122,127,129];
 % Cumulative cases in Guinea
-infectedGuinea = [258,281,291,328,344,351,398,390,390,413,412,408,409,...
+data.infectedGuinea = [258,281,291,328,344,351,398,390,390,413,412,408,409,...
     406,411,410,415,427,460,485,495,495,506,510,519,543,579,607,648,812,...
     862,861,936,942,1022,1074,1157,1199];
 % Cumulative deaths in Guinea
-deadGuinea = [174,186,193,208,215,226,264,267,270,303,305,307,309,304,...
+data.deadGuinea = [174,186,193,208,215,226,264,267,270,303,305,307,309,304,...
     310,310,314,319,339,358,363,367,373,377,380,394,396,406,430,517,555,...
     557,595,601,635,648,710,739];
 % Cumulative cases in Sierra Leone
-infectedSierraLeone = [0,16,50,79,81,89,97,128,158,239,252,305,337,386,...
+data.infectedSierraLeone = [0,16,50,79,81,89,97,128,158,239,252,305,337,386,...
     397,442,454,525,533,646,691,717,730,783,810,848,907,910,1026,1261,...
     1361,1424,1620,1673,1940,2021,2304,2437];
 % Cumulative deaths in Sierra Leone
-deadSierraLeone = [0,5,6,6,6,7,49,55,34,99,101,127,142,194,197,206,219,...
+data.deadSierraLeone = [0,5,6,6,6,7,49,55,34,99,101,127,142,194,197,206,219,...
     224,233,273,286,298,315,334,348,365,374,392,422,491,509,524,562,562,...
     597,605,622,623];
 % Cumulative cases in Liberia
-infectedLiberia = [13,13,14,14,14,14,33,41,51,107,115,131,142,172,174,...
+data.infectedLiberia = [13,13,14,14,14,14,33,41,51,107,115,131,142,172,174,...
     196,224,249,329,468,516,554,599,670,786,834,972,1082,1378,1871,2046,...
     2081,2407,2710,3280,3458,3696,3834];
 % Cumulative deaths in Liberia
-deadLiberia = [11,11,12,12,12,12,24,25,34,65,75,84,88,105,106,116,127,...
+data.deadLiberia = [11,11,12,12,12,12,24,25,34,65,75,84,88,105,106,116,127,...
     129,156,255,282,294,323,355,413,466,576,624,694,1089,1224,1137,1296,...
     1459,1677,1830,1998,2069];
 
-%% Params
+%% Params & Latin Hypercube Sample
 
-
-
+numpatches = 3;
 paramscaling = lhsdesign(500,18);
 paramranges = [0.1   0 0 0 1.5 0.5 0.5 0.5 0.9 1/3 0.5 1/7 1/15 1 8 8 8 ...
     0.001; 0.125 1 1 1 5   0.9 0.9 0.9 1.0 1   1 1/5 1/5 4 12 12 12 0.1];
 % Biologically plausible ranges for parameter ranges
 
-plottimes = datatimes(1):1:(datatimes(end)+31); %May 24 to october 31
-
+plottimes = data.times(1):1:(data.times(end)+31); %May 24 to october 31
 
 % k = knorm*[11745189 6092075 4294077];       
 %NOTE - 1. Guinea 2. SL 3. Liberia is the order!   
@@ -58,9 +64,7 @@ LiberiaDeathsRuns = [];
 LiberiaHRuns = [];
 LiberiaGuineaRuns = [];
 LiberiaSierraLeoneRuns = [];
-
    
-    
 GofRuns = [];
 ParamEstRuns = [];
  
@@ -69,22 +73,27 @@ for i = 1:500
     % LHS parameters
     ParamsTemp = paramscaling(i,:).*(paramranges(2,:) - ...
         paramranges(1,:)) + paramranges(1,:);  
+    
     %% ML (Parameter fitting)
     beta1 = ParamsTemp(2:4);
     deathfrac = ParamsTemp(6:8);
     kappa = ParamsTemp(15:17);
+    
     [MiniParamEsts,Gof] = fminsearch(@(paramsfit)...
-        GravML15(ParamsTemp,paramsfit),[beta1 deathfrac kappa]);
+        GravML15(ParamsTemp,paramsfit,data),[beta1 deathfrac kappa]);
     MiniParamEsts = abs(MiniParamEsts); 
+    
     ParamEsts = ParamsTemp;
     ParamEsts(2:4) = MiniParamEsts(1:3);
     ParamEsts(6:8) = MiniParamEsts(4:6);
     ParamEsts(15:17) = MiniParamEsts(7:9);
-    %% More initial Conditions
-    i*exp(1)
+    
+    % More initial Conditions
+%     i*exp(1)
     knorm =  ParamEsts(end);
     k = knorm*[11745189 6092075 4294077]; 
-    %% initial conditions
+    
+    %% initial conditions for plotting/saving
     % Guinea
     I1_ICG = 10/k(1);       %people who showed up infected in last few days
     % from t(-1) to  t(0)
@@ -151,9 +160,11 @@ for i = 1:500
         R_ICL IC_ICL DC_ICL IHC_ICL IA1C_ICL IA2C_ICL];
     
     initial0 = [initialGuinea initialSierraLeone initialLiberia];
-    %% Run model
+    
+    
+    %% Run model for plotting/saving
     [t,x] = ode45(@ebola_gmodel15,plottimes,initial0,[],ParamEsts,numpatches);
-    i*pi
+%     i*pi
     Guinea_cases = k(1)*x(:,9);
     Guinea_deaths = k(1)*x(:,10);
     Guinea_cases_home = k(1)*x(:,11);
@@ -203,9 +214,9 @@ figure(1)
         'FontWeight','Bold')    
     hold on
     plot(t,Guinea_cases,'r','LineWidth',2);
-    plot(datatimes,infectedGuinea,'ro');
+    plot(data.times,data.infectedGuinea,'ro');
     plot(t,Guinea_deaths,'k','LineWidth',2);
-    plot(datatimes,deadGuinea,'ko');
+    plot(data.times,data.deadGuinea,'ko');
     legend('Model - Cases', 'Data - Cases', 'Model - Deaths', ...
         'Data - Deaths') 
     xlabel('Days');
@@ -217,9 +228,9 @@ figure(2)
         'FontWeight','Bold')
     hold on
     plot(t,SierraLeone_cases,'r','LineWidth',2);
-    plot(datatimes,infectedSierraLeone,'ro');
+    plot(data.times,data.infectedSierraLeone,'ro');
     plot(t,SierraLeone_deaths,'k','LineWidth',2);
-    plot(datatimes,deadSierraLeone,'ko');
+    plot(data.times,data.deadSierraLeone,'ko');
     legend('Model - Cases', 'Data - Cases', 'Model - Deaths', ...
         'Data - Deaths') 
     xlabel('Days');
@@ -231,9 +242,9 @@ figure(3)
         'FontWeight','Bold')
     hold on
     plot(t,Liberia_cases,'r','LineWidth',2);
-    plot(datatimes,infectedLiberia,'ro');
+    plot(data.times,data.infectedLiberia,'ro');
     plot(t,Liberia_deaths,'k','LineWidth',2);
-    plot(datatimes,deadLiberia,'ko');
+    plot(data.times,data.deadLiberia,'ko');
     legend('Model - Cases', 'Data - Cases', 'Model - Deaths',...
         'Data - Deaths') 
     xlabel('Days');    
@@ -361,7 +372,7 @@ LiberiaGKeep = [LiberiaGKeep, median(LiberiaGuineaRuns,2)];
 LiberiaSLKeep = [LiberiaSLKeep, median(LiberiaSierraLeoneRuns,2)];
 
 
-% 95 percent confidence interval
+% 95 percent confidence interval-ish
 
 WhatsWhat = [WhatsWhat, 'LHSGuineabottom,   ']
 GuineaCasesKeep = [GuineaCasesKeep, quantile(GuineaRuns,0.025,2)];
